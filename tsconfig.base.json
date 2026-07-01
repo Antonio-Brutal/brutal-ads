@@ -11,10 +11,6 @@
     "strict": true,
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true,
-    "declaration": true,
-    "paths": {
-      "@brutal/shared": ["./packages/shared/src/index.ts"],
-      "@brutal/render": ["./packages/render/src/index.ts"]
-    }
+    "declaration": true
   }
 }

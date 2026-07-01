@@ -11,7 +11,18 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "engine:dev": "cd services/engine && uvicorn app.main:app --reload --port 8000"
+    "engine:dev": "cd services/engine && uvicorn app.main:app --reload --port 8000",
+    "gate:P0": "bash scripts/gate.sh P0",
+    "gate:P1": "bash scripts/gate.sh P1",
+    "gate:P2": "bash scripts/gate.sh P2",
+    "gate:P3": "bash scripts/gate.sh P3",
+    "gate:P4": "bash scripts/gate.sh P4",
+    "gate:P5": "bash scripts/gate.sh P5",
+    "gate:P6": "bash scripts/gate.sh P6",
+    "gate:P7": "bash scripts/gate.sh P7",
+    "gate:P8": "bash scripts/gate.sh P8",
+    "gate:P9": "bash scripts/gate.sh P9",
+    "gate:P10": "bash scripts/gate.sh P10"
   },
   "devDependencies": {
     "turbo": "^2.1.0",
