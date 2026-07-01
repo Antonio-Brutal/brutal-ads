@@ -21,6 +21,7 @@ headline, logo, CTA, and every carousel-slide word are **editable vector layers*
 ```
 BUILD.md            ← master build prompt (entrypoint)
 CANON.md            ← law: locked decisions + §12 ledger
+SPEC-FULL.md        ← single-file concat of BUILD.md + CANON.md + docs/01–14 (convenience read/import)
 docs/01–14          ← the exhaustive spec (product → arch → data → providers → agents → editor →
                       playbook → engagement → brand → build-plan → env → security → acceptance → appendix)
 research/R1–R7      ← verified 2026 model/API/competitor/testing research (advisory)
