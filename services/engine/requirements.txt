@@ -1,0 +1,9 @@
+# Brutal Ads — engagement engine (FastAPI). Commercial saliency path is CPU-only.
+# The factory adds the real saliency model (e.g. TranSalNet, MIT) + sharp/opencv per docs/08.
+# TRIBE v2 (CC-BY-NC-4.0) deps live behind an OPTIONAL [research] group and are NEVER installed
+# on the commercial image (docs/08 §6, CANON §9).
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+pillow>=10.4
+numpy>=2.0

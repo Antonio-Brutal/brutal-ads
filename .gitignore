@@ -1,0 +1,29 @@
+# deps
+node_modules/
+.pnp.*
+.venv/
+__pycache__/
+*.pyc
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# builds
+.next/
+out/
+dist/
+build/
+.turbo/
+
+# render/model caches & generated media (never commit)
+/cache/
+runtime_media/
+*.mp4
+
+# misc
+.DS_Store
+*.log
+.vercel
+coverage/

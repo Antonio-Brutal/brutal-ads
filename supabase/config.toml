@@ -1,0 +1,13 @@
+# Supabase local config (minimal). The factory fills project_id + settings and runs migrations.
+# Data model, RLS policies, and the Brutal seed are specified in docs/03 (+ docs/12 for RLS/security).
+project_id = "brutal-ads"
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+
+[storage]
+enabled = true

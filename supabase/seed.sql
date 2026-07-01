@@ -1,0 +1,5 @@
+-- Brutal Ads — seed. Placeholder.
+-- The factory generates migrations (docs/03 DDL + RLS) into supabase/migrations/ and seeds the
+-- Brutal AI brand kit (docs/09: sober/documentary voice, Playfair Display + Inter, dark + gold/lime,
+-- DE/EN localization). acid-lime chrome #c9ff2e is a placeholder, not a gate-load-bearing value (CANON §12 L10).
+-- See docs/03 §seed and docs/09 for the exact seed rows.

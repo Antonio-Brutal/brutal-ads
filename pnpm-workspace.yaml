@@ -1,0 +1,5 @@
+# pnpm workspace. NOTE: `prototype/` is intentionally NOT a workspace package — it is a
+# standalone Vite reference app (uses npm). The Python service (services/engine) is not a JS package.
+packages:
+  - "apps/*"
+  - "packages/*"
