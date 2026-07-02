@@ -69,7 +69,8 @@ export interface AudioProvider {
 
 export interface LlmProvider {
   complete(prompt: string, opts?: Record<string, unknown>): Promise<string>;
-  structured<T>(schema: z.ZodType<T>, prompt: string, opts?: Record<string, unknown>): Promise<T>;
+  // T is pinned to the schema OUTPUT type (zod .default()s make input≠output).
+  structured<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, prompt: string, opts?: Record<string, unknown>): Promise<T>;
 }
 
 export interface RenderRef { renderId: string; url?: string }
