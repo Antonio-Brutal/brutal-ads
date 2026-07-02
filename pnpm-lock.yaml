@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  puppeteer-core: 23.11.1
+
 importers:
 
   .:
@@ -54,7 +57,7 @@ importers:
         specifier: ^2.15.0
         version: 2.15.19(@types/react@19.2.17)(@types/sortablejs@1.15.9)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       puppeteer-core:
-        specifier: ^23.11.1
+        specifier: 23.11.1
         version: 23.11.1
       react:
         specifier: ^19.0.0
@@ -106,7 +109,7 @@ importers:
         specifier: ^2.15.0
         version: 2.15.19(@types/react@19.2.17)(@types/sortablejs@1.15.9)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       puppeteer-core:
-        specifier: ^23.11.1
+        specifier: 23.11.1
         version: 23.11.1
       sharp:
         specifier: ^0.33.5
@@ -1857,10 +1860,6 @@ packages:
     resolution: {integrity: sha512-3HZ2/7hdDKZvZQ7dhhITOUg4/wOrDRjyK2ZBllRB0ZCOi9u0cwq1ACHDjBB+nX+7+kltHjQvBRdeY7+W0T+7Gg==}
     engines: {node: '>=18'}
 
-  puppeteer-core@25.0.2:
-    resolution: {integrity: sha512-Q0IUIHER1S9PiNIfdNFc+pVOj79Tp4b9v0Fv4enigwsLy0Hbgq45KFgqzmN31DeCXh+Uvxnt9r7fMERhAMjs8Q==}
-    engines: {node: '>=22.12.0'}
-
   puppeteer@25.0.2:
     resolution: {integrity: sha512-cXj/5RlDCzSC7k1YdBIm6prb8lK8lEdmScVbcalX1rBn4fqNN1UNuEz/HZZYiDLsK8dOGvyLpGjh6CgxCyqKtg==}
     engines: {node: '>=22.12.0'}
@@ -2249,9 +2248,6 @@ packages:
   web-streams-polyfill@4.0.0-beta.3:
     resolution: {integrity: sha512-QW95TCTaHmsYfHDybGMwO5IJIM93I/6vTRk+daHTWFPhwh+C8Cg7j7XyKrwrj8Ib6vYXe0ocYNrmzY4xAAN6ug==}
     engines: {node: '>= 14'}
-
-  webdriver-bidi-protocol@0.4.1:
-    resolution: {integrity: sha512-ARrjNjtWRRs2w4Tk7nqrf2gBI0QXWuOmMCx2hU+1jUt6d00MjMxURrhxhGbrsoiZKJrhTSTzbIrc554iKI10qw==}
 
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
@@ -3782,7 +3778,7 @@ snapshots:
       mediabunny: 1.27.3
       polotno: 2.41.1(@types/react@19.2.17)(@types/sortablejs@1.15.9)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       puppeteer: 25.0.2(typescript@5.9.3)
-      puppeteer-core: 25.0.2
+      puppeteer-core: 23.11.1
       tmp: 0.2.7
     transitivePeerDependencies:
       - '@types/react'
@@ -3891,31 +3887,13 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  puppeteer-core@25.0.2:
-    dependencies:
-      '@puppeteer/browsers': 3.0.2
-      chromium-bidi: 16.0.1(devtools-protocol@0.0.1608973)
-      debug: 4.4.3
-      devtools-protocol: 0.0.1608973
-      typed-query-selector: 2.12.2
-      webdriver-bidi-protocol: 0.4.1
-      ws: 8.21.0
-    transitivePeerDependencies:
-      - bare-abort-controller
-      - bare-buffer
-      - bufferutil
-      - proxy-agent
-      - react-native-b4a
-      - supports-color
-      - utf-8-validate
-
   puppeteer@25.0.2(typescript@5.9.3):
     dependencies:
       '@puppeteer/browsers': 3.0.2
       chromium-bidi: 16.0.1(devtools-protocol@0.0.1608973)
       cosmiconfig: 9.0.2(typescript@5.9.3)
       devtools-protocol: 0.0.1608973
-      puppeteer-core: 25.0.2
+      puppeteer-core: 23.11.1
       typed-query-selector: 2.12.2
     transitivePeerDependencies:
       - bare-abort-controller
@@ -4413,8 +4391,6 @@ snapshots:
       loose-envify: 1.4.0
 
   web-streams-polyfill@4.0.0-beta.3: {}
-
-  webdriver-bidi-protocol@0.4.1: {}
 
   webidl-conversions@3.0.1: {}
 
