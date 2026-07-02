@@ -30,6 +30,10 @@ async function getInstance(): Promise<PolotnoInstance> {
     if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
       // Serverless: puppeteer's bundled Chromium isn't shipped — use @sparticuz/chromium
       // with puppeteer-core and hand polotno-node the ready browser.
+      // sparticuz gates its NSS-lib extraction + LD_LIBRARY_PATH setup on AWS/Netlify env vars
+      // that Vercel doesn't set — without this the browser dies with "libnss3.so: cannot open".
+      // Must be set BEFORE the import (module-load side effect). Vercel lambdas run AL2023.
+      process.env.AWS_LAMBDA_JS_RUNTIME ??= 'nodejs22.x';
       const [{ default: chromium }, { default: puppeteer }] = await Promise.all([
         import('@sparticuz/chromium'), import('puppeteer-core'),
       ]);
