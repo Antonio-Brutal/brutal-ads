@@ -36,6 +36,10 @@ function resolveSmartText(layer: AnyLayer, smartData: Record<string, any> | unde
   return resolved.includes('{{') || resolved.trim() === '' ? (layer.fallback ?? resolved) : resolved;
 }
 
+// 1×1 transparent PNG — asset-less image/logo slots render invisibly instead of timing out on ''.
+const TRANSPARENT_PX =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==';
+
 const base = (l: AnyLayer) => ({
   id: l.id,
   name: l.name ?? '',
@@ -50,10 +54,10 @@ const base = (l: AnyLayer) => ({
 function toPolotnoElement(l: AnyLayer, smartData: Record<string, any> | undefined, locale: string): PolotnoElement {
   switch (l.type) {
     case 'image':
-      return { ...base(l), type: 'image', src: l.src ?? '', cropX: l.crop?.x ?? 0, cropY: l.crop?.y ?? 0,
+      return { ...base(l), type: 'image', src: l.src || TRANSPARENT_PX, cropX: l.crop?.x ?? 0, cropY: l.crop?.y ?? 0,
         cropWidth: l.crop?.width ?? 1, cropHeight: l.crop?.height ?? 1, flipX: l.flipX ?? false, flipY: l.flipY ?? false };
     case 'logo':
-      return { ...base(l), type: 'image', src: l.src ?? '',
+      return { ...base(l), type: 'image', src: l.src || TRANSPARENT_PX,
         custom: { ...base(l).custom, kind: 'logo' } };
     case 'text':
       return { ...base(l), type: 'text', text: l.text, fontFamily: l.fontFamily, fontSize: l.fontSize,
