@@ -32,6 +32,7 @@ export interface Store {
   updateEngagement(id: string, scores: EngagementScoresT): Promise<void>;
   saveCarousel(rawInput: string, result: RunCarouselResult): Promise<{ brief: StoredBrief; carousel: StoredCarousel }>;
   getCarousel(variantId: string): Promise<StoredCarousel | null>;
+  saveLocalizedVariant(sourceVariantId: string, tree: LayerTreeT, locale: 'de' | 'en', copy: StudioVariant['copy']): Promise<StoredVariant>;
 }
 
 const WS = '00000000-0000-0000-0000-000000000001';   // Brutal seed workspace (supabase/seed.sql)
@@ -70,6 +71,13 @@ function memoryStore(): Store {
       return { brief, carousel };
     },
     async getCarousel(variantId) { return carousels.get(variantId) ?? null; },
+    async saveLocalizedVariant(sourceVariantId, tree, _locale, copy) {
+      const src = vars.get(sourceVariantId);
+      if (!src) throw new Error('store.saveLocalizedVariant: source variant not found');
+      const sv: StoredVariant = { ...src, id: crypto.randomUUID(), layerTree: tree, copy, engagement: undefined };
+      vars.set(sv.id, sv);
+      return sv;
+    },
   };
 }
 
@@ -197,6 +205,22 @@ function supabaseStore(): Store {
         carousel: { id: variant.id, briefId: brief.id, continuityNote: result.continuityNote,
           slides: result.slides, lineage: result.lineage },
       };
+    },
+    async saveLocalizedVariant(sourceVariantId, tree, locale, copy) {
+      const db = await supa();
+      const { data: src, error: re } = await db.from('variant').select('*').eq('id', sourceVariantId).maybeSingle();
+      if (re || !src) throw new Error(`store.saveLocalizedVariant: source not found (${re?.message ?? sourceVariantId})`);
+      const meta = (src.engagement?.raw ?? {}) as Record<string, any>;
+      const { data: inserted, error: ve } = await db.from('variant').insert({
+        workspace_id: src.workspace_id, ad_document_id: src.ad_document_id, brief_id: src.brief_id,
+        layer_tree: tree, status: 'ready', locale, ratio: src.ratio, brand_kit_version: src.brand_kit_version,
+        prompt: src.prompt, negative_prompt: src.negative_prompt,
+        created_by_kind: 'agent', created_by_agent: 'LocalizationAgent',
+        engagement: { raw: { ...meta, copy, localizedFrom: sourceVariantId } },
+      }).select('id').single();
+      if (ve) throw new Error(`store.saveLocalizedVariant: ${ve.message}`);
+      const row = { ...src, id: inserted.id, layer_tree: tree, engagement: { raw: { ...meta, copy } } };
+      return rowToVariant(row);
     },
     async getCarousel(variantId) {
       const db = await supa();

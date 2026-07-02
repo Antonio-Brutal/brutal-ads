@@ -9,7 +9,8 @@ import { createMockLlm } from './studio/llm/mock';
 import { createAnthropicLlm } from './studio/llm/anthropic';
 import { STUDIO_FIXTURES } from './studio/fixtures';
 import { runBrief, runCarousel, type RunBriefResult, type StudioVariant } from './studio/orchestrator';
-import { runEditorAgent } from './studio/agents/llm-agents';
+import { runEditorAgent, runLocalizationAgent } from './studio/agents/llm-agents';
+import { runBrandGuardian } from './studio/agents/guardian';
 import { createBflDriver, createFalDriver, createGeminiDriver, createProviderBus } from './providers';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,6 +109,44 @@ export const getBrief = (id: string) => getStore().getBrief(id);
 export const getVariant = (id: string) => getStore().getVariant(id);
 export const getCarousel = (id: string) => getStore().getCarousel(id);
 export const variantsForBrief = (briefId: string) => getStore().variantsForBrief(briefId);
+
+/**
+ * P8 — localization: one ad, two languages, from the SAME tree (docs/10 P8).
+ * Transcreated copy lands as a canonical LayerPatch (setText ops) on a CLONE of the
+ * source tree — geometry, imagery and archetype untouched; BrandGuardian re-checks.
+ */
+export async function localizeVariant(variantId: string, targetLocale: 'de' | 'en'): Promise<{ variantId: string; copy: StudioVariant['copy'] }> {
+  const v = await getVariant(variantId);
+  if (!v) throw new Error('variant not found');
+  const kit = seedBrandKit();
+  const llm = studioMode().llm === 'anthropic' ? createAnthropicLlm() : createMockLlm(STUDIO_FIXTURES);
+  const localized = await runLocalizationAgent(llm, { variants: [v.copy] }, targetLocale, kit);
+  const copy = localized.variants[0]!;
+
+  const layers = v.layerTree.layers as Array<{ id: string; type: string; requiredBy?: string }>;
+  const has = (id: string) => layers.some((l) => l.id === id);
+  const legal = layers.find((l) => l.type === 'legal');
+  const disclaimer = legal?.requiredBy ? kit.disclaimers[legal.requiredBy] : undefined;
+  const ops: unknown[] = [];
+  if (has('ly_headline')) ops.push({ op: 'setText', layerId: 'ly_headline', text: copy.headline });
+  if (has('ly_cta')) ops.push({ op: 'setText', layerId: 'ly_cta', text: copy.cta });
+  if (has('ly_kicker') && copy.kicker) ops.push({ op: 'setText', layerId: 'ly_kicker', text: copy.kicker });
+  if (legal && disclaimer) ops.push({ op: 'setText', layerId: legal.id, text: disclaimer[targetLocale] });
+
+  const patch = LayerPatch.parse({
+    id: `lp_loc_${randomUUID().slice(0, 8)}`, variantId, origin: 'agent', createdBy: 'agent',
+    note: `LocalizationAgent → ${targetLocale}`, ops,
+  });
+  const tree = applyLayerPatch(v.layerTree, patch);
+
+  const guardian = runBrandGuardian(tree, kit);
+  if (!guardian.pass) {
+    throw new Error(`BrandGuardian rejected localized tree: ${guardian.violations.filter((g) => g.severity === 'error').map((g) => g.detail).join('; ')}`);
+  }
+
+  const saved = await getStore().saveLocalizedVariant(variantId, tree, targetLocale, copy);
+  return { variantId: saved.id, copy };
+}
 
 /** Chat-to-edit: real EditorAgent when a key exists; deterministic rule parser otherwise. Both emit canonical LayerPatch. */
 export async function chatEdit(variantId: string, instruction: string): Promise<{ patch: LayerPatchT; tree: LayerTreeT }> {
