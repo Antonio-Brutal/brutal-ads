@@ -11,6 +11,7 @@ const nextConfig = {
         'polotno-node': 'commonjs polotno-node',
         puppeteer: 'commonjs puppeteer',
         'puppeteer-core': 'commonjs puppeteer-core',
+        '@sparticuz/chromium': 'commonjs @sparticuz/chromium',
         sharp: 'commonjs sharp',
       });
     }

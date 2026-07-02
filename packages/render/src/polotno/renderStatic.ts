@@ -36,7 +36,8 @@ async function getInstance(): Promise<PolotnoInstance> {
       const browser = await puppeteer.launch({
         args: chromium.args,
         executablePath: await chromium.executablePath(),
-        headless: true,
+        headless: chromium.headless as never,   // sparticuz builds the headless SHELL — must launch as 'shell'
+        env: { ...process.env },                // carry LD_LIBRARY_PATH set by executablePath() into the child
         defaultViewport: { width: 1280, height: 1280 },
       });
       shared = await createInstance({ key, browser: browser as never });
