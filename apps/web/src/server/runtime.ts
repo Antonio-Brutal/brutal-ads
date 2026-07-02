@@ -8,7 +8,7 @@ import {
 import { createMockLlm } from './studio/llm/mock';
 import { createAnthropicLlm } from './studio/llm/anthropic';
 import { STUDIO_FIXTURES } from './studio/fixtures';
-import { runBrief, type RunBriefResult, type StudioVariant } from './studio/orchestrator';
+import { runBrief, runCarousel, type RunBriefResult, type StudioVariant } from './studio/orchestrator';
 import { runEditorAgent } from './studio/agents/llm-agents';
 import { createBflDriver, createFalDriver, createGeminiDriver, createProviderBus } from './providers';
 
@@ -92,8 +92,21 @@ export async function createBrief(rawInput: string, locale: 'de' | 'en' = 'de'):
   return brief;
 }
 
+/** P7 — brief → multi-slide document ad (carousel). Same seams as createBrief. */
+export async function createCarousel(rawInput: string, locale: 'de' | 'en' = 'de', slideCount = 5) {
+  const kit = seedBrandKit();
+  const mode = studioMode();
+  const llm = mode.llm === 'anthropic' ? createAnthropicLlm() : createMockLlm(STUDIO_FIXTURES);
+  const result = await runCarousel(
+    { rawInput, brandKit: kit, targetLocale: locale, slideCount },
+    { llm, dispatchImagery: makeDispatchImagery() },
+  );
+  return getStore().saveCarousel(rawInput, result);
+}
+
 export const getBrief = (id: string) => getStore().getBrief(id);
 export const getVariant = (id: string) => getStore().getVariant(id);
+export const getCarousel = (id: string) => getStore().getCarousel(id);
 export const variantsForBrief = (briefId: string) => getStore().variantsForBrief(briefId);
 
 /** Chat-to-edit: real EditorAgent when a key exists; deterministic rule parser otherwise. Both emit canonical LayerPatch. */

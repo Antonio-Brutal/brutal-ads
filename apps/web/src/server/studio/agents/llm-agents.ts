@@ -2,7 +2,10 @@ import {
   BriefNormalized, LayerPatch, Strategy,
   type BrandKitDataT, type BriefNormalizedT, type LayerPatchT, type LayerTreeT, type LlmProvider, type StrategyT,
 } from '@brutal/shared';
-import { ArtDirection, CopySet, LocalizedCopy, type ArtDirectionT, type CopySetT, type LocalizedCopyT } from '../schemas';
+import {
+  ArtDirection, CarouselPlan, CopySet, LocalizedCopy,
+  type ArtDirectionT, type CarouselPlanT, type CopySetT, type LocalizedCopyT,
+} from '../schemas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // docs/05 — the LLM-backed roster agents. System prompts encode the docs/07 §0
@@ -62,6 +65,21 @@ export async function runEditorAgent(
     `INSTRUCTION: ${instruction}\n\nCURRENT TREE (ids + types + text):\n${JSON.stringify(
       (tree.layers as Array<Record<string, unknown>>).map((l) => ({ id: l.id, type: l.type, text: l.text ?? null })))}\n\nOUTPUT JSON keys (exact): {"id": string, "variantId": string(uuid, as given), "origin": "chat", "createdBy": "agent", "note": string, "ops": [{"op": "setText", "layerId": string, "text": string} | {"op": "setFill", "layerId": string, "fill": "#hex"} | {"op": "setFont", "layerId": string, "fontSize"?: number, "fontFamily"?: string} | {"op": "resize", "layerId": string, "width": number, "height": number, "x"?: number, "y"?: number} | {"op": "setVisible", "layerId": string, "visible": boolean} | {"op": "removeLayer", "layerId": string} | {"op": "reorderZ", "layerId": string, "toIndex": number}]}`,
     { agent: 'EditorAgent', system: VOICE(kit) });
+}
+
+export async function runCarouselArchitect(
+  llm: LlmProvider, brief: BriefNormalizedT, strategy: StrategyT, kit: BrandKitDataT, slideCount: number, locale: string,
+): Promise<CarouselPlanT> {
+  return llm.structured(CarouselPlan,
+    `Architect a ${slideCount}-slide LinkedIn document ad (carousel) in ${locale} with a hook→reframe→close ` +
+    `narrative arc. RULES: slide 1 role MUST be "hook" (identity-first, names the audience, creates tension); ` +
+    `the LAST slide role MUST be "close" (resolution + CTA); middle slides reframe the problem, land proof, or ` +
+    `carry body detail — ONE idea per slide, each slide must earn the swipe to the next. Copy per slide: ` +
+    `headline ≤70 chars, hook line ≤150, cta ≤30 (verb-first; only the close NEEDS a strong cta), kicker = proof ` +
+    `line. continuityNote: one sentence on what binds the slides (recurring motif, numbered arc, escalating claim).\n\n` +
+    `STRATEGY: ${JSON.stringify(strategy)}\nBRIEF: ${JSON.stringify(brief)}\n\n` +
+    `OUTPUT JSON keys (exact): {"slides": [{"role": "hook"|"reframe"|"proof"|"body"|"close", "copy": {"hook": string(≤150), "headline": string(≤70), "cta": string(≤30), "kicker": string(≤80, optional)}}], "continuityNote": string}`,
+    { agent: 'CarouselArchitect', system: VOICE(kit) });
 }
 
 export async function runLocalizationAgent(

@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { EngagementScoresT, LayerTreeT } from '@brutal/shared';
-import type { RunBriefResult, StudioVariant } from './studio/orchestrator';
+import type { RunBriefResult, RunCarouselResult, StudioVariant } from './studio/orchestrator';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Persistence: Supabase (real schema, RLS-respecting — signs in as the seeded
@@ -15,6 +15,13 @@ export interface StoredBrief {
   id: string; rawInput: string;
   result: Pick<RunBriefResult, 'status' | 'normalized' | 'strategy' | 'spendUsd'>;
 }
+export interface StoredCarousel {
+  id: string;                                     // variant id (carousel variant carries no tree; slides do)
+  briefId: string;
+  continuityNote: string;
+  slides: RunCarouselResult['slides'];
+  lineage: RunCarouselResult['lineage'];
+}
 
 export interface Store {
   saveBrief(rawInput: string, result: RunBriefResult): Promise<{ brief: StoredBrief; variants: StoredVariant[] }>;
@@ -23,15 +30,20 @@ export interface Store {
   variantsForBrief(briefId: string): Promise<StoredVariant[]>;
   updateVariantTree(id: string, tree: LayerTreeT): Promise<void>;
   updateEngagement(id: string, scores: EngagementScoresT): Promise<void>;
+  saveCarousel(rawInput: string, result: RunCarouselResult): Promise<{ brief: StoredBrief; carousel: StoredCarousel }>;
+  getCarousel(variantId: string): Promise<StoredCarousel | null>;
 }
 
 const WS = '00000000-0000-0000-0000-000000000001';   // Brutal seed workspace (supabase/seed.sql)
 
 // ── in-memory fallback (keyless local dev) ───────────────────────────────────
 function memoryStore(): Store {
-  const g = globalThis as unknown as { __briefs?: Map<string, StoredBrief>; __vars?: Map<string, StoredVariant> };
+  const g = globalThis as unknown as {
+    __briefs?: Map<string, StoredBrief>; __vars?: Map<string, StoredVariant>; __carousels?: Map<string, StoredCarousel>;
+  };
   const briefs = (g.__briefs ??= new Map());
   const vars = (g.__vars ??= new Map());
+  const carousels = (g.__carousels ??= new Map());
   return {
     async saveBrief(rawInput, result) {
       const brief: StoredBrief = { id: crypto.randomUUID(), rawInput, result };
@@ -48,6 +60,16 @@ function memoryStore(): Store {
     async variantsForBrief(briefId) { return [...vars.values()].filter((v) => v.briefId === briefId); },
     async updateVariantTree(id, tree) { const v = vars.get(id); if (v) v.layerTree = tree; },
     async updateEngagement(id, scores) { const v = vars.get(id); if (v) v.engagement = scores; },
+    async saveCarousel(rawInput, result) {
+      const brief: StoredBrief = { id: crypto.randomUUID(), rawInput,
+        result: { status: result.status, normalized: result.normalized, strategy: result.strategy, spendUsd: result.spendUsd } };
+      briefs.set(brief.id, brief);
+      const carousel: StoredCarousel = { id: crypto.randomUUID(), briefId: brief.id,
+        continuityNote: result.continuityNote, slides: result.slides, lineage: result.lineage };
+      carousels.set(carousel.id, carousel);
+      return { brief, carousel };
+    },
+    async getCarousel(variantId) { return carousels.get(variantId) ?? null; },
   };
 }
 
@@ -140,6 +162,59 @@ function supabaseStore(): Store {
       const engagement = { ...(data?.engagement ?? {}), scores };
       const { error } = await db.from('variant').update({ engagement }).eq('id', id);
       if (error) throw new Error(`store.updateEngagement: ${error.message}`);
+    },
+    async saveCarousel(rawInput, result) {
+      const db = await supa();
+      const { data: campaign, error: ce } = await db.from('campaign')
+        .insert({ workspace_id: WS, name: `Carousel · ${new Date().toISOString().slice(0, 10)}` })
+        .select('id').single();
+      if (ce) throw new Error(`store.campaign: ${ce.message}`);
+      const { data: brief, error: be } = await db.from('brief').insert({
+        workspace_id: WS, campaign_id: campaign.id, raw_input: rawInput,
+        normalized: result.normalized, strategy: result.strategy, target_locale: 'de',
+      }).select('id').single();
+      if (be) throw new Error(`store.brief: ${be.message}`);
+      const { data: doc, error: de } = await db.from('ad_document').insert({
+        workspace_id: WS, brief_id: brief.id, type: 'carousel', title: rawInput.slice(0, 80),
+      }).select('id').single();
+      if (de) throw new Error(`store.ad_document: ${de.message}`);
+      // carousel variant carries NO tree (docs/03: slides carry their own trees)
+      const { data: variant, error: ve } = await db.from('variant').insert({
+        workspace_id: WS, ad_document_id: doc.id, brief_id: brief.id,
+        layer_tree: null, status: 'ready', locale: 'de', ratio: '1:1', brand_kit_version: 1,
+        prompt: result.lineage.prompt, negative_prompt: result.lineage.negativePrompt,
+        created_by_kind: 'agent', created_by_agent: 'CarouselArchitect',
+        engagement: { raw: { carousel: true, continuityNote: result.continuityNote, lineage: result.lineage } },
+      }).select('id').single();
+      if (ve) throw new Error(`store.variant: ${ve.message}`);
+      const { error: se } = await db.from('slide').insert(result.slides.map((s) => ({
+        workspace_id: WS, variant_id: variant.id, position: s.position, role: s.role, layer_tree: s.layerTree,
+      })));
+      if (se) throw new Error(`store.slide: ${se.message}`);
+      return {
+        brief: { id: brief.id, rawInput,
+          result: { status: result.status, normalized: result.normalized, strategy: result.strategy, spendUsd: result.spendUsd } },
+        carousel: { id: variant.id, briefId: brief.id, continuityNote: result.continuityNote,
+          slides: result.slides, lineage: result.lineage },
+      };
+    },
+    async getCarousel(variantId) {
+      const db = await supa();
+      const { data: v } = await db.from('variant').select('id, brief_id, engagement').eq('id', variantId).maybeSingle();
+      if (!v || !v.engagement?.raw?.carousel) return null;
+      const { data: slides, error: se } = await db.from('slide')
+        .select('position, role, layer_tree').eq('variant_id', variantId).order('position');
+      if (se) throw new Error(`store.getCarousel: ${se.message}`);
+      return {
+        id: v.id, briefId: v.brief_id,
+        continuityNote: v.engagement.raw.continuityNote ?? '',
+        lineage: v.engagement.raw.lineage ?? { prompt: '', negativePrompt: '', jobKind: '', imageryAssetId: '' },
+        slides: (slides ?? []).map((s) => ({
+          position: s.position, role: s.role, layerTree: s.layer_tree,
+          copy: { hook: '', headline: '', cta: '' },              // copy lives in the tree; not re-read here
+          guardian: { pass: true, violations: [], autoFixes: [] },
+        })),
+      };
     },
   };
 }

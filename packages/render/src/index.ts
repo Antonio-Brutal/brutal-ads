@@ -15,6 +15,7 @@ import { toPolotno } from './polotno/toPolotno';
 export interface RenderSpec {
   variant: {                                 // canonical-tree carrier (docs/06: the Variant)
     layerTree: LayerTreeT;
+    slides?: LayerTreeT[];                   // carousel (docs/03: slides carry their own trees) — pdf renders one page per slide
     locale?: 'de' | 'en';
     brandKitVersion?: number;
   };
@@ -61,8 +62,30 @@ export async function renderDocument(spec: RenderSpec): Promise<RenderResult> {
         }],
       };
     }
-    case 'pdf':
-      throw new Error('renderDocument: pdf (document/carousel ads) lands in P7 — docs/06 §8.2');
+    case 'pdf': {
+      // docs/06 §8.2 — document/carousel ads: ONE PDF page per slide tree (single tree → 1 page).
+      const trees = spec.variant.slides?.length ? spec.variant.slides : [tree];
+      const opts = { locale: spec.variant.locale, brandKitVersion: spec.variant.brandKitVersion };
+      const base = toPolotno(trees[0]!, { ...opts, pageId: 'page_1' });
+      const pages = trees.map((t, i) => {
+        if (i === 0) return base.pages[0]!;
+        const page = toPolotno(t, { ...opts, pageId: `page_${i + 1}` }).pages[0]!;
+        // element ids repeat across slides (ly_headline…) — suffix so store.loadJSON stays unambiguous
+        return { ...page, children: page.children.map((c) => ({ ...c, id: `${c.id}__p${i + 1}` })) };
+      });
+      const buffer = await renderStatic({ storeJson: { ...base, pages }, format: 'pdf' });
+      return {
+        renders: [{
+          ratio: trees[0]!.ratio as AdRatio,
+          format: 'pdf',
+          buffer,
+          bytes: buffer.byteLength,
+          width: trees[0]!.canvas.width,
+          height: trees[0]!.canvas.height,
+          sha256: createHash('sha256').update(buffer).digest('hex'),
+        }],
+      };
+    }
     case 'svg':
       throw new Error('renderDocument: svg lands in P7 — docs/06 §7.2 VERIFY');
     case 'mp4':

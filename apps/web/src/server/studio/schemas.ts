@@ -36,3 +36,18 @@ export const LayoutArchetype = z.enum([
   'quote-card',
 ]);   // L10 — the 4th variant-matrix axis; board diversity depends on these not collapsing
 export type LayoutArchetypeT = z.infer<typeof LayoutArchetype>;
+
+// P7 — CarouselArchitect output (docs/05; docs/03 slide.role). Narrative arc:
+// slide 1 is ALWAYS the hook, the last slide ALWAYS the close.
+export const SlideRole = z.enum(['hook', 'reframe', 'proof', 'body', 'close']);
+export type SlideRoleT = z.infer<typeof SlideRole>;
+
+export const SlidePlan = z.object({
+  role: SlideRole,
+  copy: CopyVariant,
+});
+export const CarouselPlan = z.object({
+  slides: z.array(SlidePlan).min(3).max(10),   // LinkedIn document-ad sweet spot (CANON §8)
+  continuityNote: z.string(),                  // what visually/narratively binds the slides
+});
+export type CarouselPlanT = z.infer<typeof CarouselPlan>;
