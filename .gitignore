@@ -27,3 +27,8 @@ runtime_media/
 *.log
 .vercel
 coverage/
+
+# never commit build artifacts emitted next to sources
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.map

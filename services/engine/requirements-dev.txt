@@ -1,0 +1,4 @@
+# Dev/test-only deps. NOT installed in the commercial runtime image (docs/08 §6) — keep
+# requirements.txt runtime-only; this file is additive for `pytest`/`httpx` (TestClient) only.
+pytest>=8.0
+httpx>=0.27

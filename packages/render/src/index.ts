@@ -1,4 +1,4 @@
-import type { LayerTree, RenderKind } from '@brutal/shared';
+import type { LayerTreeT, RenderKind } from '@brutal/shared';
 
 // @brutal/render — the SINGLE public render facade (CANON §12 L5, docs/06).
 // The editor preview and headless export share ONE render model (Polotno store JSON) for parity.
@@ -7,9 +7,9 @@ import type { LayerTree, RenderKind } from '@brutal/shared';
 
 export interface RenderSpec {
   kind: RenderKind;                         // 'png' | 'jpg' | 'pdf' | 'svg'
-  tree?: LayerTree;                         // single-image / one slide
-  slides?: LayerTree[];                     // carousel → multi-page PDF
-  format?: string;                          // target aspect id, e.g. '1:1'
+  tree?: LayerTreeT;                        // single-image / one slide
+  slides?: LayerTreeT[];                    // carousel → multi-page PDF
+  ratio?: string;                           // target aspect id, e.g. '1:1'
   maxBytes?: number;                        // e.g. 5 MB for LinkedIn single image
 }
 
@@ -21,12 +21,12 @@ export interface RenderResult {
   byteLength: number;
 }
 
-/** TODO(factory): implement per docs/06 (polotno-node headless + sharp ≤5MB + pdf-lib for document ads). */
+/** TODO(P1): implement per docs/06 (polotno-node headless + sharp ≤5MB + pdf-lib for document ads). */
 export async function renderDocument(_spec: RenderSpec): Promise<RenderResult> {
   throw new Error('renderDocument: not implemented — build per docs/06');
 }
 
-/** Video ads render via a Remotion project (docs/06 §video, docs/09 video pipeline). */
+/** Video ads render via a Remotion project (docs/06, docs/09 video pipeline). */
 export async function renderVideoLocal(): Promise<RenderResult> {
   throw new Error('renderVideoLocal: not implemented — build per docs/06 (Remotion)');
 }
