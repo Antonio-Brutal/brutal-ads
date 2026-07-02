@@ -40,7 +40,7 @@ export function createAnthropicLlm(opts: AnthropicLlmOpts = {}): LlmProvider {
 
   return {
     complete: (prompt, o) => callOnce(prompt, o?.system as string | undefined),
-    async structured<T>(schema: z.ZodType<T>, prompt: string, o?: Record<string, unknown>): Promise<T> {
+    async structured<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, prompt: string, o?: Record<string, unknown>): Promise<T> {
       const sys = `${(o?.system as string) ?? ''}\nRespond with ONLY a valid JSON object matching the required schema. No prose, no markdown fences.`;
       const first = await callOnce(prompt, sys);
       try {

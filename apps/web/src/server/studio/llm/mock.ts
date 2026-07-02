@@ -14,7 +14,7 @@ export function createMockLlm(fixtures: Record<string, unknown>): LlmProvider & 
       calls.push({ agent: opts?.agent as string, prompt });
       return String(fixtures[(opts?.agent as string) ?? 'complete'] ?? 'ok');
     },
-    async structured<T>(schema: z.ZodType<T>, prompt: string, opts?: Record<string, unknown>): Promise<T> {
+    async structured<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, prompt: string, opts?: Record<string, unknown>): Promise<T> {
       const agent = (opts?.agent as string) ?? 'unknown';
       calls.push({ agent, prompt });
       const fixture = fixtures[agent];
