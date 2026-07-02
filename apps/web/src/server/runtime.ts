@@ -62,7 +62,16 @@ function makeDispatchImagery() {
   const srcById = new Map<string, string>();
   const saveAsset = async ({ url, base64, mimeType }: { url?: string; base64?: string; mimeType: string }) => {
     const assetId = `as_${randomUUID().slice(0, 8)}`;
-    srcById.set(assetId, url ?? `data:${mimeType};base64,${base64}`);
+    if (url) {
+      // provider delivery URLs (BFL/Fal) are signed + expiring — inline as durable data URLs
+      // until Supabase Storage lands with infra.
+      const res = await fetch(url);
+      const buf = Buffer.from(await res.arrayBuffer());
+      const mt = res.headers.get('content-type') ?? mimeType;
+      srcById.set(assetId, `data:${mt};base64,${buf.toString('base64')}`);
+    } else {
+      srcById.set(assetId, `data:${mimeType};base64,${base64}`);
+    }
     return { assetId };
   };
   const bus = createProviderBus({
