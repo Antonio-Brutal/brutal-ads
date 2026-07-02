@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { EngagementScoresT, LayerTreeT } from '@brutal/shared';
+import type { EngagementScoresT, LayerTreeT, VideoCompositionT } from '@brutal/shared';
 import type { RunBriefResult, RunCarouselResult, StudioVariant } from './studio/orchestrator';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,6 +33,14 @@ export interface Store {
   saveCarousel(rawInput: string, result: RunCarouselResult): Promise<{ brief: StoredBrief; carousel: StoredCarousel }>;
   getCarousel(variantId: string): Promise<StoredCarousel | null>;
   saveLocalizedVariant(sourceVariantId: string, tree: LayerTreeT, locale: 'de' | 'en', copy: StudioVariant['copy']): Promise<StoredVariant>;
+  updateVideoComposition(id: string, comp: VideoCompositionT): Promise<void>;
+  addResult(variantId: string, metrics: ResultMetrics): Promise<void>;
+  resultsForVariant(variantId: string): Promise<ResultMetrics[]>;
+}
+
+export interface ResultMetrics {
+  impressions: number; clicks: number;
+  spendUsd?: number; conversions?: number; source?: string;
 }
 
 const WS = '00000000-0000-0000-0000-000000000001';   // Brutal seed workspace (supabase/seed.sql)
@@ -78,6 +86,19 @@ function memoryStore(): Store {
       vars.set(sv.id, sv);
       return sv;
     },
+    async updateVideoComposition(id, comp) {
+      const v = vars.get(id) as (StoredVariant & { video?: unknown }) | undefined;
+      if (v) v.video = comp;
+    },
+    async addResult(variantId, metrics) {
+      const g2 = globalThis as unknown as { __results?: Map<string, ResultMetrics[]> };
+      const all = (g2.__results ??= new Map());
+      all.set(variantId, [...(all.get(variantId) ?? []), metrics]);
+    },
+    async resultsForVariant(variantId) {
+      const g2 = globalThis as unknown as { __results?: Map<string, ResultMetrics[]> };
+      return g2.__results?.get(variantId) ?? [];
+    },
   };
 }
 
@@ -94,6 +115,24 @@ async function supa(): Promise<SupabaseClient> {
   if (error) throw new Error(`store: runtime sign-in failed (${error.message}) — check seeded user/creds`);
   client = c;
   return c;
+}
+
+/** Find-or-create the "Manual results" experiment arm for a variant (P10 ingest). */
+async function ensureArm(db: SupabaseClient, variantId: string): Promise<string> {
+  const { data: existing } = await db.from('experiment_arm').select('id').eq('variant_id', variantId).maybeSingle();
+  if (existing) return existing.id;
+  const { data: v, error: ve } = await db.from('variant').select('brief_id').eq('id', variantId).maybeSingle();
+  if (ve || !v) throw new Error(`store.ensureArm: variant not found (${ve?.message ?? variantId})`);
+  const { data: exp, error: ee } = await db.from('experiment')
+    .insert({ workspace_id: WS, name: `Manual results · ${variantId.slice(0, 8)}`, status: 'running',
+      hypothesis: 'manual paste-in of LinkedIn campaign results (docs/10 P10)' })
+    .select('id').single();
+  if (ee) throw new Error(`store.ensureArm(experiment): ${ee.message}`);
+  const { data: arm, error: ae } = await db.from('experiment_arm')
+    .insert({ workspace_id: WS, experiment_id: exp.id, variant_id: variantId, label: 'manual' })
+    .select('id').single();
+  if (ae) throw new Error(`store.ensureArm(arm): ${ae.message}`);
+  return arm.id;
 }
 
 function rowToVariant(r: Record<string, any>): StoredVariant {
@@ -221,6 +260,38 @@ function supabaseStore(): Store {
       if (ve) throw new Error(`store.saveLocalizedVariant: ${ve.message}`);
       const row = { ...src, id: inserted.id, layer_tree: tree, engagement: { raw: { ...meta, copy } } };
       return rowToVariant(row);
+    },
+    async updateVideoComposition(id, comp) {
+      const db = await supa();
+      const { error } = await db.from('variant').update({ video_composition: comp }).eq('id', id);
+      if (error) throw new Error(`store.updateVideoComposition: ${error.message}`);
+    },
+    // P10 — results land in the REAL experiment→arm→result chain (docs/03 §10):
+    // one auto-created "Manual results" experiment+arm per variant on first ingest.
+    async addResult(variantId, metrics) {
+      const db = await supa();
+      const arm = await ensureArm(db, variantId);
+      const ctr = metrics.impressions > 0 ? metrics.clicks / metrics.impressions : null;
+      const { error } = await db.from('result').insert({
+        workspace_id: WS, experiment_arm_id: arm, impressions: metrics.impressions, clicks: metrics.clicks,
+        ctr, spend_usd: metrics.spendUsd, conversions: metrics.conversions,
+        cpc_usd: metrics.spendUsd && metrics.clicks ? metrics.spendUsd / metrics.clicks : null,
+        source: metrics.source ?? 'manual',
+      });
+      if (error) throw new Error(`store.addResult: ${error.message}`);
+    },
+    async resultsForVariant(variantId) {
+      const db = await supa();
+      const { data: arms } = await db.from('experiment_arm').select('id').eq('variant_id', variantId);
+      if (!arms?.length) return [];
+      const { data } = await db.from('result')
+        .select('impressions, clicks, spend_usd, conversions, source')
+        .in('experiment_arm_id', arms.map((a) => a.id));
+      return (data ?? []).map((r) => ({
+        impressions: Number(r.impressions), clicks: Number(r.clicks),
+        spendUsd: r.spend_usd ? Number(r.spend_usd) : undefined,
+        conversions: r.conversions ? Number(r.conversions) : undefined, source: r.source,
+      }));
     },
     async getCarousel(variantId) {
       const db = await supa();

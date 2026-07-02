@@ -10,3 +10,4 @@ export * from './engagement';
 export * from './provider';
 export * from './video';
 export * from './entities';
+export * from './relayout';

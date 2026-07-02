@@ -1,5 +1,5 @@
-import { EngagementScores, type EngagementScoresT, type LayerTreeT } from '@brutal/shared';
-import { getStore } from './store';
+import { EngagementScores, type CtrBandT, type EngagementScoresT, type LayerTreeT } from '@brutal/shared';
+import { getStore, type ResultMetrics } from './store';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P6 — engagement scoring (docs/08). Same seam pattern as LLM/imagery:
@@ -36,8 +36,38 @@ export async function scoreVariant(variantId: string): Promise<EngagementScoresT
     : stubScores(v.layerTree);
   scores.scoredAt = new Date().toISOString();
 
+  // P10 — real results re-fit the predicted band (docs/10: bands TIGHTEN over time)
+  const results = await getStore().resultsForVariant(variantId);
+  if (results.length && scores.predictedCtrBand) {
+    scores.predictedCtrBand = calibrateCtrBand(scores.predictedCtrBand, results);
+    scores.raw = { ...((scores.raw as object) ?? {}), calibratedFrom: results.length };
+  }
+
   await getStore().updateEngagement(variantId, scores);
   return scores;
+}
+
+/**
+ * P10 — precision-weighted re-fit of the predicted CTR band against observed results.
+ * The observed CTR pulls the band's center with weight n = min(1, impressions/50k) and
+ * SHRINKS its width (docs/10 P10: "predicted bands tighten against real CTR over time").
+ * Below 1000 impressions the signal is noise — band unchanged.
+ */
+export function calibrateCtrBand(band: CtrBandT, results: ResultMetrics[]): CtrBandT {
+  const impressions = results.reduce((s, r) => s + r.impressions, 0);
+  const clicks = results.reduce((s, r) => s + r.clicks, 0);
+  if (impressions < 1000) return band;
+  const observed = (100 * clicks) / impressions;            // CTR in %
+  const n = Math.min(1, impressions / 50_000);
+  const mid = (band.low + band.high) / 2;
+  const width = band.high - band.low;
+  const newMid = mid + (observed - mid) * n;
+  const newWidth = Math.max(0.02, width * (1 - 0.6 * n));
+  return {
+    low: Number(Math.max(0, newMid - newWidth / 2).toFixed(3)),
+    high: Number((newMid + newWidth / 2).toFixed(3)),
+    confidence: Number(Math.min(0.95, band.confidence + 0.5 * n).toFixed(3)),
+  };
 }
 
 async function engineScores(tree: LayerTreeT): Promise<EngagementScoresT> {
