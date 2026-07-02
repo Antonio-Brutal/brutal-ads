@@ -57,10 +57,13 @@ function makeDispatchImagery() {
     const src = gradientDataUrl();
     return async (_spec: GenSpecT, _jobKind: string) => ({ assetId: `as_stub_${randomUUID().slice(0, 8)}`, src, costUsd: 0 });
   }
+  // GenResult carries assetId only (CANON §6); dev keeps provider URLs in a local map until
+  // Supabase Storage lands. srcById bridges driver → compositor.
+  const srcById = new Map<string, string>();
   const saveAsset = async ({ url, base64, mimeType }: { url?: string; base64?: string; mimeType: string }) => {
-    // Supabase Storage lands with infra; dev keeps the provider URL / data URL as src.
-    void mimeType;
-    return { assetId: `as_${randomUUID().slice(0, 8)}`, src: url ?? `data:${mimeType};base64,${base64}` } as { assetId: string };
+    const assetId = `as_${randomUUID().slice(0, 8)}`;
+    srcById.set(assetId, url ?? `data:${mimeType};base64,${base64}`);
+    return { assetId };
   };
   const bus = createProviderBus({
     drivers: {
@@ -71,7 +74,7 @@ function makeDispatchImagery() {
   });
   return async (spec: GenSpecT, jobKind: string) => {
     const r = await bus.image({ kind: jobKind, modality: 'image' }).generate(spec);
-    return { assetId: r.assetId, src: (r as { src?: string }).src, costUsd: r.costUsd };
+    return { assetId: r.assetId, src: srcById.get(r.assetId), costUsd: r.costUsd };
   };
 }
 
