@@ -32,6 +32,9 @@ importers:
       '@brutal/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@sparticuz/chromium':
+        specifier: ^131.0.0
+        version: 131.0.1
       '@supabase/supabase-js':
         specifier: ^2.47.0
         version: 2.110.0
@@ -47,12 +50,21 @@ importers:
       polotno:
         specifier: ^2.20.0
         version: 2.41.1(@types/react@19.2.17)(@types/sortablejs@1.15.9)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
+      polotno-node:
+        specifier: ^2.15.0
+        version: 2.15.19(@types/react@19.2.17)(@types/sortablejs@1.15.9)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
+      puppeteer-core:
+        specifier: ^23.11.1
+        version: 23.11.1
       react:
         specifier: ^19.0.0
         version: 19.2.7
       react-dom:
         specifier: ^19.0.0
         version: 19.2.7(react@19.2.7)
+      sharp:
+        specifier: ^0.33.5
+        version: 0.33.5
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -92,7 +104,7 @@ importers:
         version: 1.17.1
       polotno-node:
         specifier: ^2.15.0
-        version: 2.15.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
+        version: 2.15.19(@types/react@19.2.17)(@types/sortablejs@1.15.9)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       puppeteer-core:
         specifier: ^23.11.1
         version: 23.11.1
@@ -3764,7 +3776,7 @@ snapshots:
 
   pngjs@7.0.0: {}
 
-  polotno-node@2.15.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3):
+  polotno-node@2.15.19(@types/react@19.2.17)(@types/sortablejs@1.15.9)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3):
     dependencies:
       '@sparticuz/chromium': 148.0.0
       mediabunny: 1.27.3
