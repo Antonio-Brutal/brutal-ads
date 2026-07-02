@@ -1,32 +1,78 @@
-import type { LayerTreeT, RenderKind } from '@brutal/shared';
+import { createHash } from 'node:crypto';
+import type { AdRatio, LayerTreeT, RenderKind } from '@brutal/shared';
+import { encodeImageUnder5MB } from './export/encodeImage';
+import { renderStatic } from './polotno/renderStatic';
+import { toPolotno } from './polotno/toPolotno';
 
-// @brutal/render — the SINGLE public render facade (CANON §12 L5, docs/06).
-// The editor preview and headless export share ONE render model (Polotno store JSON) for parity.
-// `renderDocument` dispatches to internal renderStatic / renderPdf / renderVideoLocal / encodeImageUnder5MB.
-// PDF is the sole v1 document-ad format; PPTX is NOT a native output (CANON §12 L3).
+// ─────────────────────────────────────────────────────────────────────────────
+// @brutal/render — renderDocument(spec) is THE ONLY public entry (CANON §12 L5,
+// docs/06 §8.0). Everything else is a named internal (exported for tests only).
+// P1 scope: png/jpg at the tree's base ratio (+ ≤5MB gate). Multi-ratio smart
+// re-layout lands in P5; pdf (document ads) in P7; mp4 (Remotion) in P9.
+// PPTX is deliberately absent (CANON §12 L3).
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface RenderSpec {
-  kind: RenderKind;                         // 'png' | 'jpg' | 'pdf' | 'svg'
-  tree?: LayerTreeT;                        // single-image / one slide
-  slides?: LayerTreeT[];                    // carousel → multi-page PDF
-  ratio?: string;                           // target aspect id, e.g. '1:1'
-  maxBytes?: number;                        // e.g. 5 MB for LinkedIn single image
+  variant: {                                 // canonical-tree carrier (docs/06: the Variant)
+    layerTree: LayerTreeT;
+    locale?: 'de' | 'en';
+    brandKitVersion?: number;
+  };
+  format: RenderKind | 'mp4';                // 'png'|'jpg'|'pdf'|'svg'|'mp4'
+  ratios?: AdRatio[];                        // P5: re-layout per ratio; P1 renders the base ratio only
+  pixelRatio?: number;
+  maxBytes?: number;                         // default 5 MB for jpg/png (LinkedIn single image)
 }
 
 export interface RenderResult {
-  kind: RenderKind;
-  bytes: Uint8Array;
-  width?: number;
-  height?: number;
-  byteLength: number;
+  renders: Array<{
+    ratio: AdRatio;
+    format: RenderSpec['format'];
+    buffer: Buffer;
+    bytes: number;
+    width: number;
+    height: number;
+    sha256: string;
+  }>;
 }
 
-/** TODO(P1): implement per docs/06 (polotno-node headless + sharp ≤5MB + pdf-lib for document ads). */
-export async function renderDocument(_spec: RenderSpec): Promise<RenderResult> {
-  throw new Error('renderDocument: not implemented — build per docs/06');
+export async function renderDocument(spec: RenderSpec): Promise<RenderResult> {
+  const tree = spec.variant.layerTree;
+  switch (spec.format) {
+    case 'png':
+    case 'jpg': {
+      if (spec.ratios && spec.ratios.some((r) => r !== tree.ratio)) {
+        throw new Error('renderDocument: multi-ratio re-layout lands in P5 (smartRelayout) — pass the base ratio only for now');
+      }
+      const storeJson = toPolotno(tree, { locale: spec.variant.locale, brandKitVersion: spec.variant.brandKitVersion });
+      const raw = await renderStatic({ storeJson, format: spec.format, pixelRatio: spec.pixelRatio });
+      const out = spec.format === 'jpg'
+        ? await encodeImageUnder5MB(raw, { maxBytes: spec.maxBytes })
+        : { buffer: raw, bytes: raw.byteLength, width: tree.canvas.width, height: tree.canvas.height };
+      return {
+        renders: [{
+          ratio: tree.ratio as AdRatio,
+          format: spec.format,
+          buffer: out.buffer,
+          bytes: out.bytes,
+          width: out.width ?? tree.canvas.width,
+          height: out.height ?? tree.canvas.height,
+          sha256: createHash('sha256').update(out.buffer).digest('hex'),
+        }],
+      };
+    }
+    case 'pdf':
+      throw new Error('renderDocument: pdf (document/carousel ads) lands in P7 — docs/06 §8.2');
+    case 'svg':
+      throw new Error('renderDocument: svg lands in P7 — docs/06 §7.2 VERIFY');
+    case 'mp4':
+      throw new Error('renderDocument: mp4 (Remotion) lands in P9 — docs/06 §10.4');
+  }
 }
 
-/** Video ads render via a Remotion project (docs/06, docs/09 video pipeline). */
-export async function renderVideoLocal(): Promise<RenderResult> {
-  throw new Error('renderVideoLocal: not implemented — build per docs/06 (Remotion)');
-}
+// ---- NAMED INTERNALS (tests / other render code ONLY — not part of the app contract) ----
+export { renderStatic, closeRenderInstance } from './polotno/renderStatic';
+export { toPolotno, type PolotnoStoreJSON, type PolotnoElement } from './polotno/toPolotno';
+export { fromPolotno } from './polotno/fromPolotno';
+export { encodeImageUnder5MB, LINKEDIN_IMAGE_MAX_BYTES } from './export/encodeImage';
+export { brandFonts } from './fonts';

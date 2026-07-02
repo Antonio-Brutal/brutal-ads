@@ -5,17 +5,31 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@brutal/shared": "workspace:*"
+    "@brutal/shared": "workspace:*",
+    "pdf-lib": "^1.17.1",
+    "polotno-node": "^2.15.0",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "pixelmatch": "^6.0.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   },
-  "comment": "Runtime deps (polotno-node, sharp, pdf-lib, @remotion/renderer) are added by the factory per docs/06."
+  "scripts_note": "test uses vitest; golden render tests skip when Chromium/polotno-node is unavailable"
 }
