@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ScoreChip } from '@/components/ScoreChip';
 import { TreePreview } from '@/components/TreePreview';
 import { getBrief, variantsForBrief } from '@/server/runtime';
 
@@ -29,6 +30,9 @@ export default async function BoardPage({ params }: { params: Promise<{ briefId:
               <div style={{ fontSize: 14, color: '#c9c9d1', lineHeight: 1.4 }}>{v.copy.hook}</div>
               <div style={{ fontSize: 12, color: '#8a8a99', marginTop: 8 }}>
                 Guardian: {v.lineage.guardian.pass ? '✓ on-brand' : '✗'} · open in editor →
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <ScoreChip variantId={v.id} initial={v.engagement} />
               </div>
             </div>
           </Link>

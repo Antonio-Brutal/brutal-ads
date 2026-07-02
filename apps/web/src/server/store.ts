@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { LayerTreeT } from '@brutal/shared';
+import type { EngagementScoresT, LayerTreeT } from '@brutal/shared';
 import type { RunBriefResult, StudioVariant } from './studio/orchestrator';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@ import type { RunBriefResult, StudioVariant } from './studio/orchestrator';
 // dedicated columns land with P6 scoring (marked TODO(P6)).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface StoredVariant extends StudioVariant { id: string; briefId: string }
+export interface StoredVariant extends StudioVariant { id: string; briefId: string; engagement?: EngagementScoresT }
 export interface StoredBrief {
   id: string; rawInput: string;
   result: Pick<RunBriefResult, 'status' | 'normalized' | 'strategy' | 'spendUsd'>;
@@ -22,6 +22,7 @@ export interface Store {
   getVariant(id: string): Promise<StoredVariant | null>;
   variantsForBrief(briefId: string): Promise<StoredVariant[]>;
   updateVariantTree(id: string, tree: LayerTreeT): Promise<void>;
+  updateEngagement(id: string, scores: EngagementScoresT): Promise<void>;
 }
 
 const WS = '00000000-0000-0000-0000-000000000001';   // Brutal seed workspace (supabase/seed.sql)
@@ -46,6 +47,7 @@ function memoryStore(): Store {
     async getVariant(id) { return vars.get(id) ?? null; },
     async variantsForBrief(briefId) { return [...vars.values()].filter((v) => v.briefId === briefId); },
     async updateVariantTree(id, tree) { const v = vars.get(id); if (v) v.layerTree = tree; },
+    async updateEngagement(id, scores) { const v = vars.get(id); if (v) v.engagement = scores; },
   };
 }
 
@@ -68,6 +70,7 @@ function rowToVariant(r: Record<string, any>): StoredVariant {
   const meta = (r.engagement?.raw ?? {}) as Record<string, any>;   // TODO(P6): dedicated columns
   return {
     id: r.id, briefId: r.brief_id, layerTree: r.layer_tree,
+    engagement: r.engagement?.scores,        // P6 scores ride next to the dev-mode raw stash
     archetype: meta.archetype ?? 'full-bleed-hero-lower-third',
     copy: meta.copy ?? { hook: '', headline: '', cta: '' },
     lineage: meta.lineage ?? { prompt: r.prompt ?? '', negativePrompt: r.negative_prompt ?? '',
@@ -128,6 +131,15 @@ function supabaseStore(): Store {
       const db = await supa();
       const { error } = await db.from('variant').update({ layer_tree: tree }).eq('id', id);
       if (error) throw new Error(`store.updateVariantTree: ${error.message}`);
+    },
+    async updateEngagement(id, scores) {
+      const db = await supa();
+      // merge under .scores so the dev-mode raw stash (archetype/copy/lineage) survives
+      const { data, error: re } = await db.from('variant').select('engagement').eq('id', id).maybeSingle();
+      if (re) throw new Error(`store.updateEngagement(read): ${re.message}`);
+      const engagement = { ...(data?.engagement ?? {}), scores };
+      const { error } = await db.from('variant').update({ engagement }).eq('id', id);
+      if (error) throw new Error(`store.updateEngagement: ${error.message}`);
     },
   };
 }
