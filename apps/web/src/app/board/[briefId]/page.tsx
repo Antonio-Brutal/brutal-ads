@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic';
 
 export default async function BoardPage({ params }: { params: Promise<{ briefId: string }> }) {
   const { briefId } = await params;
-  const brief = getBrief(briefId);
+  const brief = await getBrief(briefId);
   if (!brief) notFound();
-  const variants = variantsForBrief(briefId);
+  const variants = await variantsForBrief(briefId);
 
   return (
     <main style={{ maxWidth: 1240, margin: '0 auto', padding: '40px 24px' }}>

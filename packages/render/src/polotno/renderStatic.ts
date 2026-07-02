@@ -26,7 +26,23 @@ let shared: PolotnoInstance | null = null;
 
 async function getInstance(): Promise<PolotnoInstance> {
   if (!shared) {
-    shared = await createInstance({ key: process.env.POLOTNO_API_KEY || PUBLIC_DEV_KEY });
+    const key = process.env.POLOTNO_API_KEY || PUBLIC_DEV_KEY;
+    if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+      // Serverless: puppeteer's bundled Chromium isn't shipped — use @sparticuz/chromium
+      // with puppeteer-core and hand polotno-node the ready browser.
+      const [{ default: chromium }, { default: puppeteer }] = await Promise.all([
+        import('@sparticuz/chromium'), import('puppeteer-core'),
+      ]);
+      const browser = await puppeteer.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+        defaultViewport: { width: 1280, height: 1280 },
+      });
+      shared = await createInstance({ key, browser: browser as never });
+    } else {
+      shared = await createInstance({ key });
+    }
   }
   return shared;
 }

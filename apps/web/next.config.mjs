@@ -17,6 +17,15 @@ const nextConfig = {
     return config;
   },
   experimental: { serverActions: { bodySizeLimit: '10mb' } },
+  // Runtime file reads outside the app dir — the serverless tracer can't see them (docs/06 fonts pin).
+  outputFileTracingIncludes: {
+    '/**': [
+      '../../supabase/seed.sql',
+      '../../packages/render/fixtures/gradient.png',
+      '../../packages/render/assets/fonts/**',
+    ],
+  },
+  outputFileTracingRoot: new URL('../..', import.meta.url).pathname,
 };
 
 export default nextConfig;

@@ -8,7 +8,7 @@ export const maxDuration = 120;
 // share one render model (CANON L5). JPG passes the LinkedIn ≤5MB gate.
 export async function POST(req: Request) {
   const { variantId, format } = await req.json();
-  const v = getVariant(variantId);
+  const v = await getVariant(variantId);
   if (!v) return new Response('variant not found', { status: 404 });
   const fmt = format === 'png' ? 'png' : 'jpg';
   const result = await renderDocument({ variant: { layerTree: v.layerTree, locale: 'de' }, format: fmt });

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function EditorPage({ params }: { params: Promise<{ variantId: string }> }) {
   const { variantId } = await params;
-  const v = getVariant(variantId);
+  const v = await getVariant(variantId);
   if (!v) notFound();
 
   return (

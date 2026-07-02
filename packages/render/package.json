@@ -23,7 +23,9 @@
     "@brutal/shared": "workspace:*",
     "pdf-lib": "^1.17.1",
     "polotno-node": "^2.15.0",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "@sparticuz/chromium": "^131.0.0",
+    "puppeteer-core": "^23.11.1"
   },
   "devDependencies": {
     "pixelmatch": "^6.0.0",

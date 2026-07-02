@@ -20,15 +20,8 @@ import { createBflDriver, createFalDriver, createGeminiDriver, createProviderBus
 // The pipeline, schemas, patches and export path are the production ones.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface StoredVariant extends StudioVariant { id: string; briefId: string }
-export interface StoredBrief { id: string; rawInput: string; result: RunBriefResult }
-
-const globalStore = globalThis as unknown as {
-  __brutalBriefs?: Map<string, StoredBrief>;
-  __brutalVariants?: Map<string, StoredVariant>;
-};
-const briefs = (globalStore.__brutalBriefs ??= new Map());
-const variants = (globalStore.__brutalVariants ??= new Map());
+import { getStore, type StoredBrief, type StoredVariant } from './store';
+export type { StoredBrief, StoredVariant } from './store';
 
 let cachedKit: BrandKitDataT | null = null;
 export function seedBrandKit(): BrandKitDataT {
@@ -95,29 +88,24 @@ export async function createBrief(rawInput: string, locale: 'de' | 'en' = 'de'):
     { rawInput, brandKit: kit, targetLocale: locale, variantCount: 4 },
     { llm, dispatchImagery: makeDispatchImagery() },
   );
-  const brief: StoredBrief = { id: randomUUID(), rawInput, result };
-  briefs.set(brief.id, brief);
-  result.variants.forEach((v) => {
-    const sv: StoredVariant = { ...v, id: randomUUID(), briefId: brief.id };
-    variants.set(sv.id, sv);
-  });
+  const { brief } = await getStore().saveBrief(rawInput, result);
   return brief;
 }
 
-export const getBrief = (id: string) => briefs.get(id);
-export const getVariant = (id: string) => variants.get(id);
-export const variantsForBrief = (briefId: string) => [...variants.values()].filter((v) => v.briefId === briefId);
+export const getBrief = (id: string) => getStore().getBrief(id);
+export const getVariant = (id: string) => getStore().getVariant(id);
+export const variantsForBrief = (briefId: string) => getStore().variantsForBrief(briefId);
 
 /** Chat-to-edit: real EditorAgent when a key exists; deterministic rule parser otherwise. Both emit canonical LayerPatch. */
 export async function chatEdit(variantId: string, instruction: string): Promise<{ patch: LayerPatchT; tree: LayerTreeT }> {
-  const v = getVariant(variantId);
+  const v = await getVariant(variantId);
   if (!v) throw new Error('variant not found');
   const kit = seedBrandKit();
   const patch = studioMode().llm === 'anthropic'
     ? await runEditorAgent(createAnthropicLlm(), instruction, v.layerTree, variantId, kit)
     : ruleBasedPatch(instruction, v.layerTree, variantId, kit);
   const tree = applyLayerPatch(v.layerTree, patch);
-  v.layerTree = tree;
+  await getStore().updateVariantTree(variantId, tree);
   return { patch, tree };
 }
 
