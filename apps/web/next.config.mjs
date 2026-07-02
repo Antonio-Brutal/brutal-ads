@@ -26,7 +26,8 @@ const nextConfig = {
       '../../packages/render/assets/fonts/**',
       // polotno-node's client page loads dist/assets/*.js via <script src> inside its HTML —
       // invisible to nft, so without this the lambda serves the page with no JS (store undefined).
-      'node_modules/polotno-node/dist/**',
+      // Real .pnpm path only: including via the node_modules symlink makes Vercel reject the
+      // function package ("files in symlinked directories").
       '../../node_modules/.pnpm/polotno-node@*/node_modules/polotno-node/dist/**',
     ],
   },
