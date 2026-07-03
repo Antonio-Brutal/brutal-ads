@@ -43,15 +43,47 @@ export async function runCopywriter(
     { agent: 'Copywriter', system: VOICE(kit) });
 }
 
+// Composition brief per layout slot: the image must be DESIGNED for where the
+// typography will sit, not decorated around it afterwards.
+const SLOT_BRIEFS: Record<string, string> = {
+  'full-bleed-hero-lower-third':
+    'HERO SHOT. Subject and visual interest in the UPPER two-thirds; the lower third falls away into soft ' +
+    'shadow/negative space (typography lands there). Cinematic single light source, strong depth.',
+  'split-panel':
+    'SUBJECT RIGHT. The subject occupies the RIGHT half of the frame, facing or lit toward the left; the left ' +
+    'half stays calm and uncluttered (a panel covers it). Portrait-adjacent framing, shallow depth of field.',
+  'editorial-kicker-top':
+    'COVER SHOT. One strong central subject, magazine-cover energy; the top quarter stays simple sky/wall/negative ' +
+    'space (a masthead band covers it) and the bottom fifth falls dark (a CTA grounds there).',
+  'quote-card':
+    'VERTICAL DETAIL. A tall, narrow composition — architectural detail, tactile material, or a cropped human ' +
+    'moment that reads at a glance in a thin vertical strip. MID-TONE LUMINOSITY with visible detail everywhere — ' +
+    'never near-black, never empty shadow; warm light must fill the frame.',
+};
+
 export async function runArtDirector(
-  llm: LlmProvider, strategy: StrategyT, kit: BrandKitDataT, count: number,
+  llm: LlmProvider, strategy: StrategyT, kit: BrandKitDataT, count: number, archetypes: string[] = [],
 ): Promise<ArtDirectionT> {
+  const slots = Array.from({ length: count }, (_, i) => {
+    const arch = archetypes[i % Math.max(1, archetypes.length)];
+    return `SLOT ${i + 1}${arch ? ` (layout: ${arch})` : ''}: ${arch && SLOT_BRIEFS[arch] ? SLOT_BRIEFS[arch] : 'strong single subject, generous negative space for typography'}`;
+  }).join('\n');
   return llm.structured(ArtDirection,
-    `Direct ${count} background imagery concepts for this strategy. CRITICAL: prompts describe IMAGERY ONLY — ` +
-    `photography/illustration of scenes, subjects, light, mood. NEVER any words, text, typography, logos or UI ` +
-    `in the image (all text is composited later as vector layers). Brand imagery mood: ${kit.imagery.mood}. ` +
-    `Every negativePrompt MUST include: ${kit.imagery.negativePromptDefaults}` +
-    `${kit.imagery.style?.avoid?.length ? ` and avoid styles: ${kit.imagery.style.avoid.join(', ')}` : ''}.\n\nSTRATEGY: ${JSON.stringify(strategy)}\n\nOUTPUT JSON keys (exact): {"directions": [{"prompt": string, "negativePrompt": string, "jobKind": "photoreal_bg"|"design_bg"|"brand_edit"}]}`,
+    `Direct ${count} background imagery concepts for this strategy — one per slot below, IN ORDER.\n\n${slots}\n\n` +
+    `CRITICAL RULES:\n` +
+    `- Prompts describe IMAGERY ONLY — photography of scenes, subjects, light, mood. NEVER any words, text, ` +
+    `typography, logos, screens with UI, or signage (all text is composited later as vector layers).\n` +
+    `- Each slot must honor its composition brief EXACTLY (where the negative space sits is load-bearing).\n` +
+    `- VARIETY IS MANDATORY: across the ${count} concepts use different visual registers — at least one moody ` +
+    `low-key scene, one warm daylight scene (paper, wood, window light), one minimal graphic still-life, and one ` +
+    `human moment (hands, profile, posture — no direct camera gaze). Same world, different rooms.\n` +
+    `- CONTINUITY THREAD: every image carries ONE recurring warm gold light accent (lamp glow, brass, late sun) — ` +
+    `it echoes the brand's gold (${kit.palette.accents.gold ?? '#cba65e'}).\n` +
+    `- Craft bar: describe lens/light like a photo brief (e.g. "85mm, f2, single tungsten key from left"). ` +
+    `Brand imagery mood: ${kit.imagery.mood}.\n` +
+    `- Every negativePrompt MUST include: ${kit.imagery.negativePromptDefaults}` +
+    `${kit.imagery.style?.avoid?.length ? ` and avoid styles: ${kit.imagery.style.avoid.join(', ')}` : ''}.\n\n` +
+    `STRATEGY: ${JSON.stringify(strategy)}\n\nOUTPUT JSON keys (exact): {"directions": [{"prompt": string, "negativePrompt": string, "jobKind": "photoreal_bg"|"design_bg"|"brand_edit"}]}`,
     { agent: 'ArtDirector', system: VOICE(kit) });
 }
 

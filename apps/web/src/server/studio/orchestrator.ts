@@ -95,7 +95,7 @@ export async function runBrief(input: RunBriefInput, deps: RunBriefDeps): Promis
     const normalized = await llmCall('IntakeAgent', () => runIntakeAgent(deps.llm, input.rawInput, kit));
     const strategy = await llmCall('Strategist', () => runStrategist(deps.llm, normalized, kit));
     const copySet = await llmCall('Copywriter', () => runCopywriter(deps.llm, normalized, strategy, kit, count, input.targetLocale));
-    const art = await llmCall('ArtDirector', () => runArtDirector(deps.llm, strategy, kit, count));
+    const art = await llmCall('ArtDirector', () => runArtDirector(deps.llm, strategy, kit, count, ARCHETYPE_ROTATION));
 
     const variants: StudioVariant[] = [];
     for (let i = 0; i < count; i++) {
@@ -252,7 +252,7 @@ export async function runCarousel(input: RunCarouselInput, deps: RunBriefDeps): 
     }
 
     // one direction, one generation — the continuity anchor for every slide
-    const art = await llmCall('ArtDirector', () => runArtDirector(deps.llm, strategy, kit, 1));
+    const art = await llmCall('ArtDirector', () => runArtDirector(deps.llm, strategy, kit, 1, ['full-bleed-hero-lower-third']));
     const direction = art.directions[0]!;
     for (const s of plan.slides.flatMap((sl) => [sl.copy.headline, sl.copy.cta])) {
       if (s && direction.prompt.toLowerCase().includes(s.toLowerCase())) {

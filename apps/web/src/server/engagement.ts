@@ -21,9 +21,13 @@ const ROLE_BY_ID: Record<string, string> = {
   ly_headline: 'headline', ly_cta: 'cta', ly_logo: 'logo', ly_legal: 'legal', ly_bg: 'image',
 };
 
+// Structural ground (scrims, panels, rules, ornaments) is design furniture, not
+// content — it must not count as clutter or attention targets.
+const STRUCTURAL = /^ly_(scrim|panel|rule|quotemark)/;
+
 export function layerBoxes(tree: LayerTreeT): EngineLayerBox[] {
   return (tree.layers as AnyLayer[])
-    .filter((l) => l.visible !== false)
+    .filter((l) => l.visible !== false && !STRUCTURAL.test(l.id))
     .map((l) => ({ id: l.id, role: ROLE_BY_ID[l.id] ?? 'other', x: l.x, y: l.y, w: l.width, h: l.height }));
 }
 
