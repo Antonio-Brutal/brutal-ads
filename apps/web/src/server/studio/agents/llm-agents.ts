@@ -40,7 +40,8 @@ export async function runCopywriter(
     `Write ${count} distinct ad copy variants in ${locale}. RULES: hook ≤150 chars, identity-first (name the ` +
     `audience in the first line); headline ≤70 chars, one promise; cta verb-first ≤30 chars. ` +
     `kicker = a 2-4 word EYEBROW LABEL (≤35 chars, e.g. "Für Wirtschaftskanzleien", "KI-Vertragsanalyse") — ` +
-    `it renders as small tracked caps above the headline. NEVER a sentence, NEVER a claim with commas; ` +
+    `it renders as small tracked caps above the headline. NEVER a sentence, NEVER a claim with commas, and it ` +
+    `must NOT repeat any word from its own headline (name the audience or category instead); ` +
     `a DIFFERENT kicker per variant. Each variant = a DIFFERENT angle (pain, proof, contrarian, outcome...).\n\n` +
     `STRATEGY: ${JSON.stringify(strategy)}\nBRIEF: ${JSON.stringify(brief)}\n\nOUTPUT JSON keys (exact): {"variants": [{"hook": string(≤150), "headline": string(≤70), "cta": string(≤30), "kicker": string(≤35, 2-4 words, optional)}]}`,
     { agent: 'Copywriter', system: VOICE(kit) });

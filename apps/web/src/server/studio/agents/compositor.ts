@@ -149,7 +149,10 @@ export function composeLayerTree(input: ComposeInput): LayerTreeT {
   // `solid` (gold fill, ink text) on flat surfaces. Arrow signals action so the
   // button can stay quiet.
   const ctaEl = (x: number, y: number, style: 'outline' | 'solid' = 'outline') => {
-    const text = `${copy.cta}  →`;
+    // '›' (U+203A) not '→' (U+2192): the embedded Inter latin subset covers
+    // U+2000–206F but omits U+2192 — prod lambdas have no fallback font, so the
+    // arrow rendered as tofu (caught on a live prod export, invisible on macOS)
+    const text = `${copy.cta}  ›`;
     const labelW = text.length * 28 * (CHAR_W[body] ?? 0.55);
     const height = 78;
     return {
