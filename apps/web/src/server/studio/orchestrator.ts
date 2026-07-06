@@ -6,7 +6,9 @@ import {
 import { ARCHETYPE_ROTATION, composeLayerTree } from './agents/compositor';
 import { runBrandGuardian, type GuardianResult } from './agents/guardian';
 import { runArtDirector, runCarouselArchitect, runCopywriter, runIntakeAgent, runStrategist } from './agents/llm-agents';
-import type { LayoutArchetypeT, SlideRoleT } from './schemas';
+import { runVisualCritic } from './agents/visual-critic';
+import type { ImageStats } from '../imagery-stats';
+import type { LayoutArchetypeT, SlideRoleT, VisualCritiqueT } from './schemas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // docs/05 orchestration — brief → variants pipeline with cost/budget guard
@@ -28,6 +30,10 @@ export interface RunBriefDeps {
   dispatchImagery: (spec: GenSpecT, jobKind: string) => Promise<{ assetId: string; src?: string; costUsd?: number }>;
   onAgentRun?: (r: AgentRunRecord) => void;
   budget?: { capUsdPerBrief: number; estimateAgentCallUsd?: number };
+  /** Design v3 — sample the generated imagery so composition is image-aware (sharp lives app-side). */
+  analyzeImagery?: (src: string) => Promise<ImageStats | null>;
+  /** Design v3 — render a preview JPEG (base64) so the Critic can SEE the variant. Absent → critic skipped. */
+  renderPreview?: (tree: LayerTreeT) => Promise<string>;
 }
 
 export interface RunBriefInput {
@@ -44,6 +50,7 @@ export interface StudioVariant {
   lineage: {
     prompt: string; negativePrompt: string; jobKind: string;
     imageryAssetId: string; guardian: GuardianResult;
+    critique?: Pick<VisualCritiqueT, 'score' | 'issues'>;
   };
 }
 
@@ -114,10 +121,13 @@ export async function runBrief(input: RunBriefInput, deps: RunBriefDeps): Promis
       const imagery = await deps.dispatchImagery(genSpec, direction.jobKind);
       charge('ArtDirector', direction.model ?? 'image', imagery.costUsd ?? 0.04);
 
+      // v3: sample the real pixels so scrim strength/panel side fit THIS image
+      const stats = imagery.src && deps.analyzeImagery ? await deps.analyzeImagery(imagery.src) : null;
+
       const archetype = ARCHETYPE_ROTATION[i % ARCHETYPE_ROTATION.length]!;   // L10 board diversity
       let layerTree = composeLayerTree({
         copy, imagery: { assetId: imagery.assetId, src: imagery.src }, brandKit: kit, archetype,
-        locale: input.targetLocale,
+        locale: input.targetLocale, stats,
       });
       record({ agent: 'CompositorPlanner', model: 'deterministic', status: 'succeeded', costUsd: 0 });
 
@@ -135,12 +145,35 @@ export async function runBrief(input: RunBriefInput, deps: RunBriefDeps): Promis
         throw new Error(`BrandGuardian hard violations: ${guardian.violations.filter((v) => v.severity === 'error').map((v) => v.detail).join('; ')}`);
       }
 
-      // TODO(P6 seam): Critic + EngagementAnalyst scores → bounded auto-iterate ≤2 (docs/05).
+      // Design v3 — the Critic SEES the rendered variant and fixes what only
+      // pixels reveal (contrast collisions, dead voids, template tells).
+      // Non-fatal by design: any failure ships the pre-critique tree.
+      let critique: Pick<VisualCritiqueT, 'score' | 'issues'> | undefined;
+      if (deps.renderPreview) {
+        try {
+          const preview = await deps.renderPreview(layerTree);
+          const verdict = await llmCall('Critic', () => runVisualCritic(deps.llm, preview, layerTree, kit));
+          critique = { score: verdict.score, issues: verdict.issues };
+          const PROTECTED = new Set(['ly_bg', 'ly_legal']);
+          const ops = verdict.ops.filter((op) => !PROTECTED.has(op.layerId));
+          if (verdict.score < 8 && ops.length > 0) {
+            const fixed = applyLayerPatch(layerTree, LayerPatch.parse({
+              id: `critic_fix_${i}`, variantId: '00000000-0000-0000-0000-000000000000',
+              origin: 'agent', createdBy: 'agent', note: `Critic fixes (scored ${verdict.score}/10)`, ops,
+            }));
+            // fixes must not undo brand compliance — guardian re-gates, else revert
+            if (runBrandGuardian(fixed, kit).pass) layerTree = fixed;
+          }
+        } catch (e) {
+          record({ agent: 'Critic', model: 'vision', status: 'failed', costUsd: 0, error: String(e) });
+        }
+      }
+
       variants.push({
         layerTree, archetype,
         copy: { hook: copy.hook, headline: copy.headline, cta: copy.cta, kicker: copy.kicker },
         lineage: { prompt: direction.prompt, negativePrompt: direction.negativePrompt,
-          jobKind: direction.jobKind, imageryAssetId: imagery.assetId, guardian },
+          jobKind: direction.jobKind, imageryAssetId: imagery.assetId, guardian, critique },
       });
     }
 
@@ -265,11 +298,12 @@ export async function runCarousel(input: RunCarouselInput, deps: RunBriefDeps): 
     );
     charge('ArtDirector', direction.model ?? 'image', imagery.costUsd ?? 0.04);
 
+    const slideStats = imagery.src && deps.analyzeImagery ? await deps.analyzeImagery(imagery.src) : null;
     const slides: StudioSlide[] = plan.slides.map((sl, i) => {
       let layerTree = scaleTree(
         composeLayerTree({
           copy: sl.copy, imagery: { assetId: imagery.assetId, src: imagery.src },
-          brandKit: kit, archetype: ARCHETYPE_BY_ROLE[sl.role], locale: input.targetLocale,
+          brandKit: kit, archetype: ARCHETYPE_BY_ROLE[sl.role], locale: input.targetLocale, stats: slideStats,
         }),
         DOCUMENT_AD_SIZE,
       );

@@ -83,4 +83,8 @@ export const STUDIO_FIXTURES: Record<string, unknown> = {
     ],
     continuityNote: 'Eskalationsbogen um die eine Zahl (60% → 40%): jede Slide verengt vom Schmerz zur belegten Lösung; gleiches Bildmotiv, wechselnde Ausschnitte.',
   },
+
+  // Design v3 — vision Critic verdict (mock mode never renders, but any test or
+  // keyless path that wires renderPreview must find a fixture here).
+  Critic: { score: 8.5, issues: [], ops: [] },
 };

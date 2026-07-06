@@ -188,7 +188,14 @@ function supabaseStore(): Store {
     },
     async getVariant(id) {
       const db = await supa();
-      const { data } = await db.from('variant').select('*').eq('id', id).maybeSingle();
+      // don't swallow transient errors into a lying "variant not found": surface
+      // the real failure, and absorb one-off hiccups with a single retry
+      let { data, error } = await db.from('variant').select('*').eq('id', id).maybeSingle();
+      if (error || !data) {
+        await new Promise((r) => setTimeout(r, 400));
+        ({ data, error } = await db.from('variant').select('*').eq('id', id).maybeSingle());
+      }
+      if (error) throw new Error(`store.getVariant: ${error.message}`);
       return data ? rowToVariant(data) : null;
     },
     async variantsForBrief(briefId) {

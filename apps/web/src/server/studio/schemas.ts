@@ -37,6 +37,25 @@ export const LayoutArchetype = z.enum([
 ]);   // L10 — the 4th variant-matrix axis; board diversity depends on these not collapsing
 export type LayoutArchetypeT = z.infer<typeof LayoutArchetype>;
 
+// Design v3 — the Critic sees the RENDERED variant (vision input) and returns a
+// score + bounded layout-fix ops. It never rewrites copy and never touches
+// imagery; the op whitelist is enforced again in the orchestrator.
+export const CritiqueOp = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('resize'), layerId: z.string(), x: z.number().optional(), y: z.number().optional(),
+    width: z.number().optional(), height: z.number().optional() }),
+  z.object({ op: z.literal('setFont'), layerId: z.string(), fontFamily: z.string().optional(),
+    fontSize: z.number().optional(), fontWeight: z.number().optional(), lineHeight: z.number().optional(),
+    letterSpacing: z.number().optional() }),
+  z.object({ op: z.literal('setFill'), layerId: z.string(), fill: z.string() }),
+  z.object({ op: z.literal('setVisible'), layerId: z.string(), visible: z.boolean() }),
+]);
+export const VisualCritique = z.object({
+  score: z.number().min(0).max(10),          // ≥8 ships as-is; <8 applies ops
+  issues: z.array(z.string()).default([]),
+  ops: z.array(CritiqueOp).default([]),
+});
+export type VisualCritiqueT = z.infer<typeof VisualCritique>;
+
 // P7 — CarouselArchitect output (docs/05; docs/03 slide.role). Narrative arc:
 // slide 1 is ALWAYS the hook, the last slide ALWAYS the close.
 export const SlideRole = z.enum(['hook', 'reframe', 'proof', 'body', 'close']);

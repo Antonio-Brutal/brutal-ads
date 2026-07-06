@@ -39,6 +39,42 @@ describe('runBrief pipeline (docs/05 orchestration)', () => {
     expect(archetypes.size).toBeGreaterThanOrEqual(2);              // L10 board diversity
   });
 
+  it('design v3: every variant carries a brand mark and real-gradient grounds (no band stacks)', async () => {
+    const llm = createMockLlm(STUDIO_FIXTURES);
+    const result = await runBrief(
+      { rawInput: 'x', brandKit: seedKit(), targetLocale: 'de', variantCount: 4 },
+      { llm, dispatchImagery },
+    );
+    for (const v of result.variants) {
+      const layers = v.layerTree.layers as Array<{ id: string; type: string; src?: string }>;
+      // brand mark present (seed kit has no logo asset → wordmark signature)
+      expect(layers.some((l) => l.id === 'ly_logo')).toBe(true);
+      // v2's banded fake gradient (ly_scrim1..5) must never come back
+      expect(layers.filter((l) => l.id.startsWith('ly_scrim'))).toHaveLength(
+        layers.some((l) => l.id === 'ly_scrim') ? 1 : 0);
+      // any scrim/blend ground is a continuous SVG gradient
+      for (const g of layers.filter((l) => l.id === 'ly_scrim' || l.id === 'ly_blend')) {
+        expect(g.src).toMatch(/^data:image\/svg\+xml/);
+      }
+    }
+  });
+
+  it('design v3: critic loop applies whitelisted fixes when renderPreview is wired', async () => {
+    const llm = createMockLlm({
+      ...STUDIO_FIXTURES,
+      Critic: { score: 5, issues: ['headline collides with subject'],
+        ops: [{ op: 'setFont', layerId: 'ly_headline', fontSize: 60 }] },
+    } as typeof STUDIO_FIXTURES);
+    const result = await runBrief(
+      { rawInput: 'x', brandKit: seedKit(), targetLocale: 'de', variantCount: 1 },
+      { llm, dispatchImagery, renderPreview: async () => 'ZmFrZQ==' },
+    );
+    const headline = (result.variants[0]!.layerTree.layers as Array<{ id: string; fontSize?: number }>)
+      .find((l) => l.id === 'ly_headline');
+    expect(result.variants[0]!.lineage.critique?.score).toBe(5);
+    expect(headline?.fontSize).toBe(60);
+  });
+
   it('imagery prompts never contain the ad copy (composite-don\'t-bake, CANON §2)', async () => {
     const llm = createMockLlm(STUDIO_FIXTURES);
     const result = await runBrief(

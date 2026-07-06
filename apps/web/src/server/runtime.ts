@@ -81,13 +81,30 @@ function makeDispatchImagery() {
   };
 }
 
+// Design v3 seams — image-aware composition (sharp sampling) always on; the
+// vision Critic needs BOTH a real LLM and a renderer, and stays skippable via
+// STUDIO_VISUAL_CRITIC=0 (renders in-request cost latency).
+async function makeAnalyzeImagery() {
+  const { analyzeImagery } = await import('./imagery-stats');
+  return analyzeImagery;
+}
+function makeRenderPreview() {
+  if (process.env.STUDIO_VISUAL_CRITIC === '0') return undefined;
+  return async (tree: LayerTreeT): Promise<string> => {
+    const { renderDocument } = await import('@brutal/render');
+    const r = await renderDocument({ variant: { layerTree: tree }, format: 'jpg', pixelRatio: 0.6 });
+    return r.renders[0]!.buffer.toString('base64');
+  };
+}
+
 export async function createBrief(rawInput: string, locale: 'de' | 'en' = 'de'): Promise<StoredBrief> {
   const kit = seedBrandKit();
   const mode = studioMode();
   const llm = mode.llm === 'anthropic' ? createAnthropicLlm() : createMockLlm(STUDIO_FIXTURES);
   const result = await runBrief(
     { rawInput, brandKit: kit, targetLocale: locale, variantCount: 4 },
-    { llm, dispatchImagery: makeDispatchImagery() },
+    { llm, dispatchImagery: makeDispatchImagery(), analyzeImagery: await makeAnalyzeImagery(),
+      ...(mode.llm === 'anthropic' ? { renderPreview: makeRenderPreview() } : {}) },
   );
   const { brief } = await getStore().saveBrief(rawInput, result);
   return brief;
@@ -100,7 +117,7 @@ export async function createCarousel(rawInput: string, locale: 'de' | 'en' = 'de
   const llm = mode.llm === 'anthropic' ? createAnthropicLlm() : createMockLlm(STUDIO_FIXTURES);
   const result = await runCarousel(
     { rawInput, brandKit: kit, targetLocale: locale, slideCount },
-    { llm, dispatchImagery: makeDispatchImagery() },
+    { llm, dispatchImagery: makeDispatchImagery(), analyzeImagery: await makeAnalyzeImagery() },
   );
   return getStore().saveCarousel(rawInput, result);
 }

@@ -38,8 +38,11 @@ export async function runCopywriter(
 ): Promise<CopySetT> {
   return llm.structured(CopySet,
     `Write ${count} distinct ad copy variants in ${locale}. RULES: hook ≤150 chars, identity-first (name the ` +
-    `audience in the first line); headline ≤70 chars, one promise; cta verb-first ≤30 chars; kicker = proof line. ` +
-    `Each variant = a DIFFERENT angle (pain, proof, contrarian, outcome...).\n\nSTRATEGY: ${JSON.stringify(strategy)}\nBRIEF: ${JSON.stringify(brief)}\n\nOUTPUT JSON keys (exact): {"variants": [{"hook": string(≤150), "headline": string(≤70), "cta": string(≤30), "kicker": string(≤80, optional)}]}`,
+    `audience in the first line); headline ≤70 chars, one promise; cta verb-first ≤30 chars. ` +
+    `kicker = a 2-4 word EYEBROW LABEL (≤35 chars, e.g. "Für Wirtschaftskanzleien", "KI-Vertragsanalyse") — ` +
+    `it renders as small tracked caps above the headline. NEVER a sentence, NEVER a claim with commas; ` +
+    `a DIFFERENT kicker per variant. Each variant = a DIFFERENT angle (pain, proof, contrarian, outcome...).\n\n` +
+    `STRATEGY: ${JSON.stringify(strategy)}\nBRIEF: ${JSON.stringify(brief)}\n\nOUTPUT JSON keys (exact): {"variants": [{"hook": string(≤150), "headline": string(≤70), "cta": string(≤30), "kicker": string(≤35, 2-4 words, optional)}]}`,
     { agent: 'Copywriter', system: VOICE(kit) });
 }
 
@@ -53,8 +56,9 @@ const SLOT_BRIEFS: Record<string, string> = {
     'SUBJECT RIGHT. The subject occupies the RIGHT half of the frame, facing or lit toward the left; the left ' +
     'half stays calm and uncluttered (a panel covers it). Portrait-adjacent framing, shallow depth of field.',
   'editorial-kicker-top':
-    'COVER SHOT. One strong central subject, magazine-cover energy; the top quarter stays simple sky/wall/negative ' +
-    'space (a masthead band covers it) and the bottom fifth falls dark (a CTA grounds there).',
+    'COVER SHOT. One strong central subject, magazine-cover energy. CRITICAL FRAMING: the subject\'s head and ' +
+    'shoulders sit fully in the MIDDLE band of the frame (between 40% and 75% of frame height) — the top third is ' +
+    'ONLY empty wall/sky (a masthead band covers it; a face there gets decapitated) and the bottom fifth falls dark.',
   'quote-card':
     'VERTICAL DETAIL. A tall, narrow composition — architectural detail, tactile material, or a cropped human ' +
     'moment that reads at a glance in a thin vertical strip. MID-TONE LUMINOSITY with visible detail everywhere — ' +
@@ -73,6 +77,8 @@ export async function runArtDirector(
     `CRITICAL RULES:\n` +
     `- Prompts describe IMAGERY ONLY — photography of scenes, subjects, light, mood. NEVER any words, text, ` +
     `typography, logos, screens with UI, or signage (all text is composited later as vector layers).\n` +
+    `- NO CLOSE-UPS of printed documents, contracts, books or screens: image models hallucinate gibberish ` +
+    `pseudo-text on them and the ad looks broken. Paper may appear only distant, blank, or heavily defocused.\n` +
     `- Each slot must honor its composition brief EXACTLY (where the negative space sits is load-bearing).\n` +
     `- VARIETY IS MANDATORY: across the ${count} concepts use different visual registers — at least one moody ` +
     `low-key scene, one warm daylight scene (paper, wood, window light), one minimal graphic still-life, and one ` +
